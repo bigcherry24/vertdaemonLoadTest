@@ -13,6 +13,7 @@
             padding: 10px 18px;
             font-size: 16px;
             cursor: pointer;
+            margin-right: 8px;
         }
         #log {
             margin-top: 16px;
@@ -23,39 +24,138 @@
             border: 1px solid #ddd;
             padding: 12px;
         }
+        #status {
+            margin-left: 8px;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
     <h1>Vert.x Load Test</h1>
     <p>여러 탭에서 이 페이지를 열고 버튼을 클릭하면 WebSocket 연결이 생성되고 메시지가 전송됩니다.</p>
-    <button onclick="startChat()">채팅 연결 및 폭격 시작</button>
+
+    <button id="startBtn">채팅 연결 및 폭격 시작</button>
+    <button id="stopConnBtn" disabled>채팅 연결 중지</button>
+    <button id="stopBombBtn" disabled>폭격 중지</button>
+    <span id="status">상태: 대기</span>
+
     <div id="log"></div>
+
     <script>
+        let ws = null;
+        let sendIntervalId = null;
+        let sending = false;
+
+        const logEl = document.getElementById('log');
+        const statusEl = document.getElementById('status');
+        const startBtn = document.getElementById('startBtn');
+        const stopConnBtn = document.getElementById('stopConnBtn');
+        const stopBombBtn = document.getElementById('stopBombBtn');
+
+        function appendLog(text) {
+            logEl.innerText += text + '\n';
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        function updateStatus() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                statusEl.innerText = '상태: 연결됨' + (sending ? ' (폭격 중)' : ' (대기)');
+                stopConnBtn.disabled = false;
+                stopBombBtn.disabled = !sending;
+                startBtn.disabled = true;
+            } else {
+                statusEl.innerText = '상태: 대기';
+                stopConnBtn.disabled = true;
+                stopBombBtn.disabled = true;
+                startBtn.disabled = false;
+            }
+        }
+
+        function startBombardment(intervalMs = 100) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                appendLog('WebSocket이 열려있지 않아 폭격을 시작할 수 없습니다.');
+                return;
+            }
+            if (sending) return;
+            sendIntervalId = setInterval(() => {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    const message = 'Hello Vert.x! Test Message ' + Date.now();
+                    try {
+                        ws.send(message);
+                    } catch (e) {
+                        appendLog('전송 오류: ' + e);
+                    }
+                }
+            }, intervalMs);
+            sending = true;
+            appendLog('폭격 시작 (간격: ' + intervalMs + 'ms)');
+            updateStatus();
+        }
+
+        function stopBombardment() {
+            if (sendIntervalId) {
+                clearInterval(sendIntervalId);
+                sendIntervalId = null;
+            }
+            if (sending) {
+                sending = false;
+                appendLog('폭격 중지');
+            }
+            updateStatus();
+        }
+
         function startChat() {
-            const ws = new WebSocket('ws://localhost:8080/chat');
-            const log = document.getElementById('log');
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                appendLog('이미 연결되어 있습니다.');
+                return;
+            }
+            ws = new WebSocket('ws://localhost:8080/chat');
 
             ws.onopen = () => {
-                log.innerText += 'WebSocket 연결됨: ws://localhost:8080/chat\n';
-                setInterval(() => {
-                    const message = 'Hello Vert.x! Test Message ' + Date.now();
-                    ws.send(message);
-                }, 100); // 100ms마다 송신
+                appendLog('WebSocket 연결됨: ws://localhost:8080/chat');
+                updateStatus();
+                startBombardment(100);
             };
 
             ws.onmessage = (event) => {
-                log.innerText += '수신: ' + event.data + '\n';
-                log.scrollTop = log.scrollHeight;
+                appendLog('수신: ' + event.data);
             };
 
             ws.onclose = () => {
-                log.innerText += 'WebSocket 연결 종료\n';
+                appendLog('WebSocket 연결 종료');
+                stopBombardment();
+                ws = null;
+                updateStatus();
             };
 
             ws.onerror = (err) => {
-                log.innerText += 'WebSocket 오류: ' + err + '\n';
+                appendLog('WebSocket 오류: ' + err);
             };
+
+            updateStatus();
         }
+
+        function stopChat() {
+            stopBombardment();
+            if (ws) {
+                try {
+                    ws.close();
+                } catch (e) {
+                    appendLog('소켓 종료 오류: ' + e);
+                }
+                ws = null;
+                appendLog('클라이언트에서 WebSocket을 닫았습니다.');
+            } else {
+                appendLog('활성 WebSocket 연결이 없습니다.');
+            }
+            updateStatus();
+        }
+
+        startBtn.addEventListener('click', startChat);
+        stopConnBtn.addEventListener('click', stopChat);
+        stopBombBtn.addEventListener('click', stopBombardment);
+
+        updateStatus();
     </script>
 </body>
 </html>
