@@ -100,3 +100,10 @@ pkill -f daemon-monitor-1.0.0.jar
 
 - 애플리케이션은 기본적으로 `8080` 포트를 사용합니다.
 - `/metrics` 엔드포인트는 Prometheus 텍스트 포맷으로 메트릭을 제공합니다.
+
+
+### refence sites
+
+https://how-to.vertx.io/metrics-prometheus-grafana-howto/
+https://vertx.io/docs/howtos/metrics-prometheus-grafana-howto/
+https://vertx.io/docs/vertx-micrometer-metrics/java/
