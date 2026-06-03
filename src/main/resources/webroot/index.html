@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vert.x Load Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 24px;
+        }
+        button {
+            padding: 10px 18px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        #log {
+            margin-top: 16px;
+            white-space: pre-wrap;
+            max-height: 320px;
+            overflow-y: auto;
+            background: #f4f4f4;
+            border: 1px solid #ddd;
+            padding: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Vert.x Load Test</h1>
+    <p>여러 탭에서 이 페이지를 열고 버튼을 클릭하면 WebSocket 연결이 생성되고 메시지가 전송됩니다.</p>
+    <button onclick="startChat()">채팅 연결 및 폭격 시작</button>
+    <div id="log"></div>
+    <script>
+        function startChat() {
+            const ws = new WebSocket('ws://localhost:8080/chat');
+            const log = document.getElementById('log');
+
+            ws.onopen = () => {
+                log.innerText += 'WebSocket 연결됨: ws://localhost:8080/chat\n';
+                setInterval(() => {
+                    const message = 'Hello Vert.x! Test Message ' + Date.now();
+                    ws.send(message);
+                }, 100); // 100ms마다 송신
+            };
+
+            ws.onmessage = (event) => {
+                log.innerText += '수신: ' + event.data + '\n';
+                log.scrollTop = log.scrollHeight;
+            };
+
+            ws.onclose = () => {
+                log.innerText += 'WebSocket 연결 종료\n';
+            };
+
+            ws.onerror = (err) => {
+                log.innerText += 'WebSocket 오류: ' + err + '\n';
+            };
+        }
+    </script>
+</body>
+</html>
